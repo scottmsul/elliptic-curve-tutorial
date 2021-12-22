@@ -1,0 +1,35 @@
+How do signing and verifying work in BIP340 Schnorr single-sig?
+-> Sign: s = k + Hash(R||P||m), broadcast (R,s), check that s*G = S + hash(R||P||m)*Q
+What were the three trade-offs discussed between the e and R variants, and why was R chosen?
+-> 1. e has a simpler encoding (number vs point)
+-> 2. e could result in 25% shorter signatures (but not really due to potential hash collision attacks)
+-> 3. R allows for batch verification (faster processing)
+-> Since 1 has a workaround, 2 isn't relevant since shorter hashes are dangerous, and 3 is an actual improvement, R variant was chosen
+How can an attacker use Birthday/Wagner's Algorithm to forge a signature on a multisig, and how can the honest party prevent this?
+-> Attacker/honest party pre-share the nonce R
+-> Attacker calculates H(R||P||m0) for lots of innocent m0, H(R||P||m1) for lots of malicious m1, finds a collision, shares m0 w/ honest party, then acts as a good signature on m1.
+-> To prevent, honest party should agree on m before publishing R.
+What are related-key attacks, and how does BIP340 mitigate them?
+-> If s1 is a signature on m1 for key Q1/d1, and attacker knows that Q2=Q1+a, then s+a*e is a valid signature on same m for Q2.
+-> In current bitcoin transactions Q is part of m so can't be used to steal funds if m is different.
+-> However, if implemented SIGHASH_NOINPUT would remove dependence of m on Q, making this a problem in Schnorr.
+-> As fix, use key-prefixing: instead of H(R||m) use H(R||P||m).
+What term is used to describe that BIP340 uses H(R||P||m) instead of H(R||m)?
+-> Key-prefixing
+What term is used to describe an attack where a known additive tweak is added to a signature?
+-> Related-key attacks
+What three options could be used to encode elliptic curve public points Q and R? Which was chosen and why?
+-> Encode full X/Y coordinates
+-> Encode full X and one symmtetry-breaking Y
+-> Encode full X and use rule to break symmetry
+-> Option 3 was chosen due to compactness. Each coordinate is 32 bytes, so 1 uses 64 bytes/point, 2 uses 33 bytes/point, and 3 uses 32 bytes/point.
+What three strategies could be used to break the Y-symmetry in public points? Which was chosen and why?
+-> Y that is in lower half
+-> Y that is even
+-> Y that is a quadratic residue
+Option 2 was chosen because it's already used in the traditional ECDSA implementation and computation times are all similar.
+What is a tagged hash? What two examples demonstrate what can go wrong without them? What is the optimization described for hash tagging?
+-> A tagged hash is prefixing a hash with a context-specific value. HASH_{tag}(m) = HASH(HASH(tag)||HASH(tag)||m)
+-> Example 1. If another Schnorr scheme were created which re-ordered the hash arguments, then a signature in one could be valid in the other.
+-> Example 2. If another Schnorr scheme re-used a nonce and a private key, then an attacker could calculate the private key.
+-> Since SHA256 uses blocks of size 64 bytes and outputs 32 bytes, starting SHA256 with HASH(tag)||HASH(tag) is equivalent to starting with a different seed and can be hard-coded for efficiency.
